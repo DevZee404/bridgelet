@@ -21,6 +21,7 @@ import {
 import type { BiometricDeviceSupport } from "../src/security/auth";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 import { useScreenTracking } from '../src/hooks/useScreenTracking';
+import { track, JOURNEYS } from '../src/analytics/analytics';
 
 export default function SecuritySetupScreen() {
   // §mobile analytics: record that this screen was opened.
@@ -97,10 +98,31 @@ export default function SecuritySetupScreen() {
     setErrorMessage(null); setMessage(null); setShowPinFallback(false); setPinFallback(""); setIsBusy(true);
     try {
       const result = await authenticateSensitiveAction();
-      if (result.isAuthorized) { setMessage("Authentication success. Sensitive action unlocked."); return; }
+      if (result.isAuthorized) {
+        track({
+          name: 'Login Completed',
+          params: { journey: JOURNEYS.shared, method: 'biometric' },
+        });
+        setMessage("Authentication success. Sensitive action unlocked.");
+        return;
+      }
+      track({
+        name: 'Login Failed',
+        params: {
+          journey: JOURNEYS.shared,
+          method: 'biometric',
+          reason: result.requiresPin ? 'denied' : 'unavailable',
+        },
+      });
       if (result.requiresPin) setShowPinFallback(true);
       setErrorMessage(result.errorMessage ?? "Authentication failed.");
-    } catch { setErrorMessage("Authentication failed. Please try again."); }
+    } catch {
+      track({
+        name: 'Login Failed',
+        params: { journey: JOURNEYS.shared, method: 'biometric', reason: 'unavailable' },
+      });
+      setErrorMessage("Authentication failed. Please try again.");
+    }
     finally { setIsBusy(false); }
   };
 
@@ -108,10 +130,27 @@ export default function SecuritySetupScreen() {
     setErrorMessage(null); setMessage(null); setIsBusy(true);
     try {
       const success = await verifyPinCode(pinFallback);
-      if (!success) { setErrorMessage("Incorrect PIN."); return; }
+      if (!success) {
+        track({
+          name: 'Login Failed',
+          params: { journey: JOURNEYS.shared, method: 'pin', reason: 'incorrect_pin' },
+        });
+        setErrorMessage("Incorrect PIN.");
+        return;
+      }
+      track({
+        name: 'Login Completed',
+        params: { journey: JOURNEYS.shared, method: 'pin' },
+      });
       setShowPinFallback(false); setPinFallback("");
       setMessage("PIN accepted. Sensitive action unlocked.");
-    } catch { setErrorMessage("Unable to verify PIN."); }
+    } catch {
+      track({
+        name: 'Login Failed',
+        params: { journey: JOURNEYS.shared, method: 'pin', reason: 'unavailable' },
+      });
+      setErrorMessage("Unable to verify PIN.");
+    }
     finally { setIsBusy(false); }
   };
 

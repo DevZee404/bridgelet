@@ -173,6 +173,21 @@ export type AnalyticsEvent =
   | {
       name: 'Theme Changed';
       params: EventBase & { from: string; to: string };
+    }
+  /**
+   * Authentication succeeded. `method` distinguishes a biometric prompt from
+   * the PIN fallback, which the security setup screen offers as two separate
+   * paths to the same outcome.
+   */
+  | { name: 'Login Completed'; params: EventBase & { method: 'biometric' | 'pin' } }
+  /**
+   * Authentication failed. `reason` is a coarse code (`denied`, `incorrect_pin`,
+   * `unavailable`), never a raw error message, so a payload can never carry
+   * more than the outcome.
+   */
+  | {
+      name: 'Login Failed';
+      params: EventBase & { method: 'biometric' | 'pin'; reason: string };
     };
 
 /** Every event name, for tests and for the spec-drift check. */

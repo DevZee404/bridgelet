@@ -1412,6 +1412,15 @@ These interactions exist only in the app. They are named with the same
 | `Notifications Cleared` | `shared` | Unread count reaches zero. Carries `source` (`read_all` / `last_read`) and `unread_before` |
 | `Language Detected` | `shared` | A message language is determined. Carries `language`, `detection_source` (`auto` / `manual_override`) and `confidence` |
 | `Theme Changed` | `shared` | The theme preference changes. Carries `from` and `to` (`light` / `dark` / `system`) |
+| `Login Completed` | `shared` | Biometric or PIN authentication succeeds. Carries `method` (`biometric` / `pin`) |
+| `Login Failed` | `shared` | Biometric or PIN authentication fails. Carries `method` and a coarse `reason` (`denied`, `incorrect_pin`, `unavailable`) — never a raw error message |
+
+`Login Completed` / `Login Failed` cover the mobile security setup surface
+(`app/security/index.tsx`), where a sensitive action is unlocked by biometrics
+with a PIN fallback. They are the mobile analogue of a web authentication
+success/failure pair and are deliberately split rather than merged into one
+event with a `result` field, matching the `Claim Succeeded` / `Claim Failed`
+convention in §5.3.
 
 `Crash Reported` is deliberately **not** `Error Displayed`. The §6 event is for
 expected, in-flow failures the app can explain to the user (invalid token,
