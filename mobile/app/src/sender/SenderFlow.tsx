@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,6 +14,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { TransferService } from './TransferService';
 import { ShareSheet } from './ShareSheet';
 import { CreateAccountRequest, CreateAccountResponse, SupportedAsset } from '../types/api';
+import { track, JOURNEYS } from '../analytics/analytics';
 
 type Step = 'amount' | 'recipient' | 'review' | 'success' | 'error';
 
@@ -24,6 +25,10 @@ export const SenderFlow: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<CreateAccountResponse | null>(null);
   const [showShareSheet, setShowShareSheet] = useState(false);
+
+  // §mobile analytics: `Send Form Started` fires once per form, on the first
+  // interaction with any field — not on every keystroke.
+  const startedRef = useRef(false);
 
   // Form State
   const [amount, setAmount] = useState('');
@@ -45,8 +50,19 @@ export const SenderFlow: React.FC = () => {
   const handleCreateAccount = async () => {
     if (!selectedAsset || !amount || !recipientName) return;
 
+    track({
+      name: 'Send Form Completed',
+      params: {
+        journey: JOURNEYS.sender,
+        asset_type: selectedAsset.code,
+        has_recipient_name: recipientName.trim().length > 0,
+        has_message: message.trim().length > 0,
+      },
+    });
+
     setLoading(true);
     setError(null);
+    const submitStartedAt = Date.now();
 
     const request: CreateAccountRequest = {
       amount,
@@ -61,6 +77,15 @@ export const SenderFlow: React.FC = () => {
     try {
       const res = await TransferService.createEphemeralAccount(request);
       setResponse(res);
+      track({
+        name: 'Payment Created',
+        params: {
+          journey: JOURNEYS.sender,
+          claim_id: res.accountId,
+          asset_type: selectedAsset.code,
+          confirmation_time_ms: Date.now() - submitStartedAt,
+        },
+      });
       setStep('success');
     } catch (err: any) {
       setError(err.message || 'Failed to create ephemeral account. Please try again.');
@@ -81,7 +106,16 @@ export const SenderFlow: React.FC = () => {
           placeholderTextColor="#64748B"
           keyboardType="decimal-pad"
           value={amount}
-          onChangeText={setAmount}
+          onChangeText={(value) => {
+            if (!startedRef.current) {
+              startedRef.current = true;
+              track({
+                name: 'Send Form Started',
+                params: { journey: JOURNEYS.sender, first_field: 'amount' },
+              });
+            }
+            setAmount(value);
+          }}
         />
         <View style={styles.assetPicker}>
           {assets.map((asset) => (

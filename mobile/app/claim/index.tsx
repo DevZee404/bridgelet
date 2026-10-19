@@ -20,6 +20,7 @@ import {
 } from "../src/claims/token";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 import { useScreenTracking } from '../src/hooks/useScreenTracking';
+import { track, JOURNEYS } from '../src/analytics/analytics';
 
 const summarizeToken = (token: string): string => {
   if (token.length <= 36) return token;
@@ -72,6 +73,16 @@ export default function ClaimTokenEntryScreen() {
     try {
       validateClaimToken(normalizedToken);
     } catch (error) {
+      track({
+        name: 'Claim Failed',
+        params: {
+          journey: JOURNEYS.recipient,
+          claim_id: 'unknown',
+          error_type: 'unknown',
+          error_code: 'invalid_token',
+          attempt_number: 1,
+        },
+      });
       setErrorMessage(getClaimTokenErrorMessage(error));
       return;
     }
@@ -80,6 +91,16 @@ export default function ClaimTokenEntryScreen() {
       const claim = await lookupClaimByToken(normalizedToken);
       setResult(claim);
     } catch (error) {
+      track({
+        name: 'Claim Failed',
+        params: {
+          journey: JOURNEYS.recipient,
+          claim_id: 'unknown',
+          error_type: 'unknown',
+          error_code: 'lookup_failed',
+          attempt_number: 1,
+        },
+      });
       setErrorMessage(getClaimTokenErrorMessage(error));
     } finally {
       setIsLoading(false);

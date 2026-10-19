@@ -14,6 +14,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useThemeColors } from '../src/hooks/useThemeColors';
 import { useScreenTracking } from '../src/hooks/useScreenTracking';
+import { track, JOURNEYS } from '../src/analytics/analytics';
 
 const readParam = (value: string | string[] | undefined, fallback = ''): string =>
   Array.isArray(value) ? (value[0] ?? fallback) : (value ?? fallback);
@@ -34,6 +35,10 @@ export default function ClaimSuccessScreen() {
   const parsedAsset = readParam(asset, 'XLM:native');
   const parsedAccountId = readParam(accountId, 'unknown-account');
   const parsedTxHash = readParam(txHash, '');
+  // Match the web spec's §3.2 `asset_type` form (`"XLM"`, `"USDC"`, …) rather
+  // than the token's `CODE:ISSUER` spelling, so the two platforms group the
+  // same asset identically.
+  const normalizedAsset = parsedAsset.split(':')[0];
 
   const pulse = useRef(new Animated.Value(1)).current;
 
@@ -47,6 +52,29 @@ export default function ClaimSuccessScreen() {
     animation.start();
     return () => animation.stop();
   }, [pulse]);
+
+  // §mobile analytics: reaching this screen means the claim completed. Record
+  // the recipient-journey outcome with the web spec's exact event names so the
+  // two platforms share one funnel.
+  useEffect(() => {
+    track({
+      name: 'Claim Succeeded',
+      params: {
+        journey: JOURNEYS.recipient,
+        claim_id: parsedAccountId,
+        asset_type: normalizedAsset,
+        entry_channel: 'direct',
+      },
+    });
+    track({
+      name: 'Claim Success Viewed',
+      params: {
+        journey: JOURNEYS.recipient,
+        claim_id: parsedAccountId,
+        asset_type: normalizedAsset,
+      },
+    });
+  }, [parsedAccountId, normalizedAsset]);
 
   const explorerUrl = parsedTxHash
     ? `https://stellar.expert/explorer/public/tx/${parsedTxHash}`
