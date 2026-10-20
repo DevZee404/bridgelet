@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { secureStorage } from '../src/utils/storage';
 import { useThemeColors } from '../src/hooks/useThemeColors';
 import { useScreenTracking } from '../src/hooks/useScreenTracking';
+import { track, trackButtonPress, JOURNEYS } from '../src/analytics/analytics';
 
 const { width } = Dimensions.get('window');
 
@@ -39,14 +40,22 @@ export default function OnboardingScreen() {
   const colors = useThemeColors();
 
   const handleSkip = async () => {
+    trackButtonPress('skip', 'onboarding');
+    track({ name: 'Signup Completed', params: { journey: JOURNEYS.shared, method: 'skipped' } });
     await secureStorage.setItem('has_onboarded', 'true');
     router.replace('/');
   };
 
   const handleNext = async () => {
     if (currentIndex < ONBOARDING_DATA.length - 1) {
+      trackButtonPress('next', 'onboarding');
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
     } else {
+      trackButtonPress('get_started', 'onboarding');
+      track({
+        name: 'Signup Completed',
+        params: { journey: JOURNEYS.shared, method: 'completed' },
+      });
       await secureStorage.setItem('has_onboarded', 'true');
       router.replace('/');
     }
