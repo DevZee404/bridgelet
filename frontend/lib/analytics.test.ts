@@ -2563,6 +2563,79 @@ describe('network dimension', () => {
   });
 });
 
+// ─── #809 / #812 / #813 / #814 §3.1 fields on dispatched events ───────────────
+
+describe('§3.1 base payload reaches the provider (#809, #812, #813, #814)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    delete (window as unknown as { plausible?: unknown }).plausible;
+    clearPendingEvents();
+    // Drop the own-property referrer stub installed below, so the prototype
+    // getter is visible again for every subsequent test.
+    Reflect.deleteProperty(document, 'referrer');
+  });
+
+  /** Fires one event and returns the props that reached the provider. */
+  function emittedProps(): Record<string, unknown> {
+    const plausible = plausibleMock();
+    (window as unknown as { plausible?: ReturnType<typeof plausibleMock> }).plausible = plausible;
+
+    analytics.sendFormViewed();
+
+    expect(plausible).toHaveBeenCalledTimes(1);
+    return (plausible.mock.calls[0]![1] as { props: Record<string, unknown> }).props;
+  }
+
+  it('#809 carries platform "web" on a dispatched event', () => {
+    expect(emittedProps().platform).toBe('web');
+  });
+
+  it('#814 carries the build-time app_version on a dispatched event', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.4.2');
+    expect(emittedProps().app_version).toBe('1.4.2');
+  });
+
+  it('#814 reports "unknown" rather than an empty app_version when unset', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '');
+    expect(emittedProps().app_version).toBe('unknown');
+  });
+
+  it('#812 carries a device_type from the §3.1 closed set', () => {
+    expect(emittedProps().device_type).toMatch(/^(mobile|tablet|desktop)$/);
+  });
+
+  it('#813 carries referrer as null when the document has no referrer', () => {
+    const props = emittedProps();
+    expect('referrer' in props).toBe(true);
+    expect(props.referrer).toBeNull();
+  });
+
+  it('#813 carries the referring URL when one exists', () => {
+    Object.defineProperty(document, 'referrer', {
+      configurable: true,
+      get: () => 'https://news.example.com/story',
+    });
+
+    expect(emittedProps().referrer).toBe('https://news.example.com/story');
+  });
+
+  it('keeps all four fields on events replayed from the pre-provider queue', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.4.2');
+    analytics.pageViewed({ page: '/' });
+
+    const plausible = plausibleMock();
+    (window as unknown as { plausible?: ReturnType<typeof plausibleMock> }).plausible = plausible;
+    analytics.sendFormViewed();
+
+    const replayed = (plausible.mock.calls[0]![1] as { props: Record<string, unknown> }).props;
+    expect(replayed.platform).toBe('web');
+    expect(replayed.app_version).toBe('1.4.2');
+    expect(replayed.device_type).toMatch(/^(mobile|tablet|desktop)$/);
+    expect(replayed.referrer).toBeNull();
+  });
+});
+
 // ─── #882 consent gate ────────────────────────────────────────────────────────
 
 describe('explicit analytics opt-out', () => {
