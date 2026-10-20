@@ -1412,15 +1412,20 @@ These interactions exist only in the app. They are named with the same
 | `Notifications Cleared` | `shared` | Unread count reaches zero. Carries `source` (`read_all` / `last_read`) and `unread_before` |
 | `Language Detected` | `shared` | A message language is determined. Carries `language`, `detection_source` (`auto` / `manual_override`) and `confidence` |
 | `Theme Changed` | `shared` | The theme preference changes. Carries `from` and `to` (`light` / `dark` / `system`) |
-| `Login Completed` | `shared` | Biometric or PIN authentication succeeds. Carries `method` (`biometric` / `pin`) |
-| `Login Failed` | `shared` | Biometric or PIN authentication fails. Carries `method` and a coarse `reason` (`denied`, `incorrect_pin`, `unavailable`) — never a raw error message |
+| `Signup Completed` | `shared` | First-run onboarding finishes. Carries `method` (`completed` / `skipped`) |
+| `Logout Completed` | `shared` | The user signs out and sensitive data is cleared from secure storage |
+| `Button Pressed` | `shared` | A generic CTA press on a control with no more specific event yet. Carries `button` and `screen` |
 
-`Login Completed` / `Login Failed` cover the mobile security setup surface
-(`app/security/index.tsx`), where a sensitive action is unlocked by biometrics
-with a PIN fallback. They are the mobile analogue of a web authentication
-success/failure pair and are deliberately split rather than merged into one
-event with a `result` field, matching the `Claim Succeeded` / `Claim Failed`
-convention in §5.3.
+`Signup Completed` is the mobile activation boundary: onboarding is the only
+first-run surface, and SKIP vs. completing the tour are different signals that
+would be averaged into one rate if merged. `Logout Completed` is emitted by the
+sign-out routine (`app/src/utils/cleanup.ts`) after the secure-storage wipe, so
+a failed cleanup cannot report a logout that did not happen.
+
+`Button Pressed` is deliberately **not** a replacement for a specific event. It
+exists so an un-instrumented CTA can still be measured while it waits for its
+own `Noun Verb` event; any button that feeds a KPI should be promoted to a
+named event per §2.1.
 
 `Crash Reported` is deliberately **not** `Error Displayed`. The §6 event is for
 expected, in-flow failures the app can explain to the user (invalid token,
