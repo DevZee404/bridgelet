@@ -140,6 +140,27 @@ export type AnalyticsEvent =
       name: 'Retry Clicked';
       params: EventBase & { claim_id?: string | null; error_type: string; attempt_number: number };
     }
+  // ── Sender journey (shared names with docs/analytics-spec.md §4) ──────────
+  /** The sender first interacts with the send form; `first_field` names it. */
+  | { name: 'Send Form Started'; params: EventBase & { first_field: string } }
+  /** The sender confirms the transfer. */
+  | {
+      name: 'Send Form Completed';
+      params: EventBase & {
+        asset_type?: string;
+        has_recipient_name: boolean;
+        has_message: boolean;
+      };
+    }
+  /** The ephemeral account was created and the claim link is ready to share. */
+  | {
+      name: 'Payment Created';
+      params: EventBase & {
+        claim_id: string;
+        asset_type?: string;
+        confirmation_time_ms: number;
+      };
+    }
   // ── Mobile-only (documented in docs/analytics-spec.md, mobile section) ────
   /** Every navigation to a top-level screen. Replaces the previous `screen_view`. */
   | { name: 'Screen Viewed'; params: EventBase & { screen: string } }

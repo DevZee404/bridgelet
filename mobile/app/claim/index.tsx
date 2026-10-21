@@ -75,6 +75,16 @@ export default function ClaimTokenEntryScreen() {
     try {
       validateClaimToken(normalizedToken);
     } catch (error) {
+      track({
+        name: 'Claim Failed',
+        params: {
+          journey: JOURNEYS.recipient,
+          claim_id: 'unknown',
+          error_type: 'unknown',
+          error_code: 'invalid_token',
+          attempt_number: 1,
+        },
+      });
       setErrorMessage(getClaimTokenErrorMessage(error));
       return;
     }
@@ -95,6 +105,16 @@ export default function ClaimTokenEntryScreen() {
         },
       });
     } catch (error) {
+      track({
+        name: 'Claim Failed',
+        params: {
+          journey: JOURNEYS.recipient,
+          claim_id: 'unknown',
+          error_type: 'unknown',
+          error_code: 'lookup_failed',
+          attempt_number: 1,
+        },
+      });
       setErrorMessage(getClaimTokenErrorMessage(error));
     } finally {
       setIsLoading(false);
