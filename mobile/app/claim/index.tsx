@@ -20,7 +20,7 @@ import {
 } from "../src/claims/token";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 import { useScreenTracking } from '../src/hooks/useScreenTracking';
-import { track, JOURNEYS } from '../src/analytics/analytics';
+import { track, trackButtonPress, JOURNEYS } from '../src/analytics/analytics';
 
 const summarizeToken = (token: string): string => {
   if (token.length <= 36) return token;
@@ -57,6 +57,7 @@ export default function ClaimTokenEntryScreen() {
   };
 
   const handlePaste = async () => {
+    trackButtonPress('paste_from_clipboard', 'claim_token_entry');
     const clipboardValue = await Clipboard.getStringAsync();
     if (!clipboardValue?.trim()) {
       setErrorMessage("Clipboard is empty.");
@@ -68,6 +69,7 @@ export default function ClaimTokenEntryScreen() {
   };
 
   const handleLookup = async () => {
+    trackButtonPress('lookup_claim', 'claim_token_entry');
     setErrorMessage(null);
     setResult(null);
     try {
@@ -87,9 +89,21 @@ export default function ClaimTokenEntryScreen() {
       return;
     }
     setIsLoading(true);
+    const startedAt = Date.now();
     try {
       const claim = await lookupClaimByToken(normalizedToken);
       setResult(claim);
+      // The claim has been resolved against the backend; this is the point
+      // the recipient journey actually starts.
+      track({
+        name: 'Claim Verified',
+        params: {
+          journey: JOURNEYS.recipient,
+          claim_id: claim.accountId,
+          asset_type: claim.asset,
+          verification_time_ms: Date.now() - startedAt,
+        },
+      });
     } catch (error) {
       track({
         name: 'Claim Failed',
@@ -186,6 +200,15 @@ export default function ClaimTokenEntryScreen() {
             <TouchableOpacity
               style={styles.claimButton}
               onPress={() => {
+                trackButtonPress('complete_claim', 'claim_token_entry');
+                track({
+                  name: 'Claim CTA Clicked',
+                  params: {
+                    journey: JOURNEYS.recipient,
+                    claim_id: result.accountId,
+                    asset_type: result.asset,
+                  },
+                });
                 const txHash = createMockTxHash(`${result.accountId}:${normalizedToken}`);
                 router.push({
                   pathname: "/claim/success",

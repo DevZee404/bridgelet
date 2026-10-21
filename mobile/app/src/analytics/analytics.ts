@@ -194,7 +194,21 @@ export type AnalyticsEvent =
   | {
       name: 'Theme Changed';
       params: EventBase & { from: string; to: string };
-    };
+    }
+  /**
+   * The first-run onboarding finished. `method` distinguishes reaching the
+   * last slide from skipping out early, which are different activation
+   * signals and would otherwise be averaged together.
+   */
+  | { name: 'Signup Completed'; params: EventBase & { method: 'completed' | 'skipped' } }
+  /** The user signed out; sensitive data was cleared from secure storage. */
+  | { name: 'Logout Completed'; params: EventBase }
+  /**
+   * A generic button press, for CTAs that have no more specific event yet.
+   * `button` names the control and `screen` the surface it lives on, so the
+   * pair is stable enough to group on without inventing an event per button.
+   */
+  | { name: 'Button Pressed'; params: EventBase & { button: string; screen: string } };
 
 /** Every event name, for tests and for the spec-drift check. */
 export type AnalyticsEventName = AnalyticsEvent['name'];
@@ -376,4 +390,15 @@ export function track(event: AnalyticsEvent): void {
  */
 export function trackScreenView(screen: string): void {
   track({ name: 'Screen Viewed', params: { journey: JOURNEYS.shared, screen } });
+}
+
+/**
+ * Records a generic button press.
+ *
+ * A one-line seam for CTAs that do not yet warrant their own product event:
+ * call sites name the button and the screen, and the shared base payload is
+ * attached by `track()` as usual.
+ */
+export function trackButtonPress(button: string, screen: string): void {
+  track({ name: 'Button Pressed', params: { journey: JOURNEYS.shared, button, screen } });
 }
